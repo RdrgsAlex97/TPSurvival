@@ -21,6 +21,9 @@ ATPSurvivalCharacter::ATPSurvivalCharacter()
 	sneakMovementSpeed = 150.0f;
 	sprintMovementSpeed = 750.0f;
 
+	maxHealth = 100.0f;
+	currentHealth = maxHealth;
+
 
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
@@ -154,15 +157,18 @@ void ATPSurvivalCharacter::AimDownSight()
 		camera->TargetArmLength = 50.0f;
 		camera->TargetOffset = FVector(0.0f, 30.0f, 70.0f);
 		TPPCamera->bUsePawnControlRotation = true;
-
-
+		
 		if (auto characterMovement = GetCharacterMovement()) {
 
 			characterMovement->MaxWalkSpeed = sneakMovementSpeed;
 
+			if (bIsTPP)
+			{
+
+			this->bUseControllerRotationYaw = true;
 			GetCharacterMovement()->bUseControllerDesiredRotation = true;
 			GetCharacterMovement()->bOrientRotationToMovement = false;
-			
+			}
 
 		}
 
@@ -188,7 +194,7 @@ void ATPSurvivalCharacter::StopAimDownSight()
 
 			if (bIsTPP) {
 
-
+				this->bUseControllerRotationYaw = false;
 				GetCharacterMovement()->bUseControllerDesiredRotation = false;
 				GetCharacterMovement()->bOrientRotationToMovement = true;
 			}

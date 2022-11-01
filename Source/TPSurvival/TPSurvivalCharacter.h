@@ -94,6 +94,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
 		float sprintMovementSpeed;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
+		float currentHealth;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat)
+		float maxHealth;
+
 	
 
 
