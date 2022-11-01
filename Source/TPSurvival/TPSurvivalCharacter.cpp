@@ -13,6 +13,15 @@
 
 ATPSurvivalCharacter::ATPSurvivalCharacter()
 {
+	bIsAiming = false;
+	bIsSprinting = false;
+	bIsTPP = true;
+
+	movementSpeed = 500.0f;
+	sneakMovementSpeed = 150.0f;
+	sprintMovementSpeed = 750.0f;
+
+
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
@@ -42,10 +51,18 @@ ATPSurvivalCharacter::ATPSurvivalCharacter()
 	CameraBoom->TargetArmLength = 400.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 
-	// Create a follow camera
-	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
-	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+	// Create a ThirdPersonCamera
+	TPPCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("TPPCamera"));
+	TPPCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
+	TPPCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+	
+
+	//Create FirstPersonCamera
+	FPPCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FPPCamera"));
+	FPPCamera->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, "Head");
+	FPPCamera->bUsePawnControlRotation = true; 
+	
+	
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
@@ -72,20 +89,19 @@ void ATPSurvivalCharacter::SetupPlayerInputComponent(class UInputComponent* Play
 	PlayerInputComponent->BindAxis("Look Up / Down Mouse", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("Look Up / Down Gamepad", this, &ATPSurvivalCharacter::LookUpAtRate);
 
-	// handle touch devices
-	PlayerInputComponent->BindTouch(IE_Pressed, this, &ATPSurvivalCharacter::TouchStarted);
-	PlayerInputComponent->BindTouch(IE_Released, this, &ATPSurvivalCharacter::TouchStopped);
+	//Aim Down Sight
+	PlayerInputComponent->BindAction("Aim", IE_Pressed, this, &ATPSurvivalCharacter::AimDownSight);
+	PlayerInputComponent->BindAction("Aim", IE_Released, this, &ATPSurvivalCharacter::StopAimDownSight);
+
+	//Sprint
+	PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &ATPSurvivalCharacter::StartSprint);
+	PlayerInputComponent->BindAction("Sprint", IE_Released, this, &ATPSurvivalCharacter::StopSprint);
+
+	//SwitchCamera third person to first and vice versa
+	PlayerInputComponent->BindAction("SwitchCamera", IE_Pressed, this, &ATPSurvivalCharacter::SwitchCamera);
+
 }
 
-void ATPSurvivalCharacter::TouchStarted(ETouchIndex::Type FingerIndex, FVector Location)
-{
-	Jump();
-}
-
-void ATPSurvivalCharacter::TouchStopped(ETouchIndex::Type FingerIndex, FVector Location)
-{
-	StopJumping();
-}
 
 void ATPSurvivalCharacter::TurnAtRate(float Rate)
 {
@@ -98,6 +114,8 @@ void ATPSurvivalCharacter::LookUpAtRate(float Rate)
 	// calculate delta for this frame from the rate information
 	AddControllerPitchInput(Rate * TurnRateGamepad * GetWorld()->GetDeltaSeconds());
 }
+
+
 
 void ATPSurvivalCharacter::MoveForward(float Value)
 {
@@ -115,15 +133,133 @@ void ATPSurvivalCharacter::MoveForward(float Value)
 
 void ATPSurvivalCharacter::MoveRight(float Value)
 {
-	if ( (Controller != nullptr) && (Value != 0.0f) )
+	if ((Controller != nullptr) && (Value != 0.0f))
 	{
 		// find out which way is right
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
-	
+
 		// get right vector 
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
 	}
 }
+
+void ATPSurvivalCharacter::AimDownSight()
+{
+
+	if (auto camera = GetCameraBoom()) {
+
+		camera->TargetArmLength = 50.0f;
+		camera->TargetOffset = FVector(0.0f, 30.0f, 70.0f);
+		TPPCamera->bUsePawnControlRotation = true;
+
+
+		if (auto characterMovement = GetCharacterMovement()) {
+
+			characterMovement->MaxWalkSpeed = sneakMovementSpeed;
+
+			GetCharacterMovement()->bUseControllerDesiredRotation = true;
+			GetCharacterMovement()->bOrientRotationToMovement = false;
+			
+
+		}
+
+
+	}
+
+	bIsAiming = true;
+
+}
+
+void ATPSurvivalCharacter::StopAimDownSight()
+{
+
+	if (auto camera = GetCameraBoom()) {
+
+		camera->TargetArmLength = 300.0f;
+		camera->TargetOffset = FVector(0.0f, 0.0f, 0.0f);
+		TPPCamera->bUsePawnControlRotation = false;
+
+		if (auto characterMovement = GetCharacterMovement()) {
+
+			characterMovement->MaxWalkSpeed = movementSpeed;
+
+			if (bIsTPP) {
+
+
+				GetCharacterMovement()->bUseControllerDesiredRotation = false;
+				GetCharacterMovement()->bOrientRotationToMovement = true;
+			}
+		}
+
+	}
+
+	bIsAiming = false;
+
+
+}
+
+void ATPSurvivalCharacter::StartSprint()
+{
+
+	if (!bIsAiming)
+	{
+		if (auto characterMovement = GetCharacterMovement()) {
+
+			characterMovement->MaxWalkSpeed = sprintMovementSpeed;
+			TPPCamera->SetFieldOfView(100.0f);
+		}
+		
+	}
+
+}
+
+void ATPSurvivalCharacter::StopSprint()
+{
+	if (bIsAiming)
+		return;
+
+	if (auto characterMovement = GetCharacterMovement()) {
+
+		characterMovement->MaxWalkSpeed = movementSpeed;
+		TPPCamera->SetFieldOfView(90.0f);
+	}
+
+}
+
+void ATPSurvivalCharacter::SwitchCamera(){
+
+
+	if(bIsTPP){
+
+		TPPCamera->SetActive(false);
+		FPPCamera->SetActive(true);
+
+		GetCharacterMovement()->bUseControllerDesiredRotation = true;
+		GetCharacterMovement()->bOrientRotationToMovement = false;
+
+		bIsTPP = false;
+	
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("First Person"));
+
+
+	}else{
+
+		bIsTPP = true;
+		TPPCamera->SetActive(true);
+		FPPCamera->SetActive(false);
+
+		GetCharacterMovement()->bUseControllerDesiredRotation = false;
+		GetCharacterMovement()->bOrientRotationToMovement = true;
+
+
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Third Person"));
+
+	}
+
+
+
+}
+
