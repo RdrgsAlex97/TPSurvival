@@ -78,11 +78,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
 		bool bIsAiming;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+		bool bIsTPP;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = CharacterMovement)
 		bool bIsSprinting;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
-		bool bIsTPP;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterMovement)
 		float movementSpeed;
